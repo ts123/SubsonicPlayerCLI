@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# subsonic api parameters
+SUBSONIC=http://subsonic
+USER=user
+PASSWORD=password
+VERSION=1.6.0
+CLIENT=myapp
+
+# tool paths
+LYNX=/opt/local/bin/lynx
+XMLSTARLET=/opt/local/bin/xmlstarlet
+PLAYER=/opt/local/bin/mplayer
+
+if [ -t 0 ]; then
+    # /dev/stdin is empty
+    query=$1
+    if [ -z "$query" ]; then
+        echo 'no query string'
+        exit
+    fi
+    $LYNX -source "$SUBSONIC/rest/search2.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&query=$query" \
+    | $XMLSTARLET sel -N n=http://subsonic.org/restapi -t -m "//n:song" -v "concat(@title, ' ___ ', @album, ' ___ ', @artist, ' ___ ', @id)" -n \
+    | cat -n \
+    | sed -e '$d'
+else
+    # /dev/stdin have input
+    if [ $# -ne 0 ]; then
+        sedargs="-n $(echo -ne $@ | sed -E 's/([0-9]+)/-e \1p/g')"
+    else
+        sedargs=""
+    fi
+    cat /dev/stdin | awk '{print $NF}' | sed $sedargs | while read id; do
+        $PLAYER "$SUBSONIC/rest/stream.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&id=$id" < /dev/null
+    done
+fi 
+
