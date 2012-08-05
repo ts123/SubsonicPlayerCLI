@@ -24,11 +24,8 @@ SubsonicPlayerCLI
 - コマンド例では検索結果の1番と3番を順番に再生する
 - 番号を入れなければ検索結果全てを順番に再生する
 
-## 注意点
-- Subsonicサーバーにパスワードを平文のまま送るので、使用は家庭内LAN内などのみに限定する (https://は未検証)
-
 ## 使用ツール
-- Lynx
+- GNU Wget
 - XMLStarlet
 - MPlayer
 
