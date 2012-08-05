@@ -1,16 +1,24 @@
 #!/bin/bash
 
 # subsonic api parameters
-SUBSONIC=http://subsonic
+SUBSONIC=https://subsonic
 USER=user
 PASSWORD=password
 VERSION=1.6.0
 CLIENT=myapp
 
 # tool paths
-LYNX=/opt/local/bin/lynx
+WGET=/opt/local/bin/wget
 XMLSTARLET=/opt/local/bin/xmlstarlet
 PLAYER=/opt/local/bin/mplayer
+
+# ssl option
+CA_CERT=/path/to/cert.pem
+if [[ $SUBSONIC == https://* ]]; then
+    CERT_OPTS="--ca-certificate=$CA_CERT"
+else
+    CERT_OPTS=
+fi
 
 if [ -t 0 ]; then
     # /dev/stdin is empty
@@ -19,7 +27,7 @@ if [ -t 0 ]; then
         echo 'no query string'
         exit
     fi
-    $LYNX -source "$SUBSONIC/rest/search2.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&query=$query" \
+    $WGET -q $CERT_OPTS "$SUBSONIC/rest/search2.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&query=$query" -O - \
     | $XMLSTARLET sel -N n=http://subsonic.org/restapi -t -m "//n:song" -v "concat(@title, ' ___ ', @album, ' ___ ', @artist, ' ___ ', @id)" -n \
     | cat -n \
     | sed -e '$d'
@@ -28,10 +36,15 @@ else
     if [ $# -ne 0 ]; then
         sedargs="-n $(echo -ne $@ | sed -E 's/([0-9]+)/-e \1p/g')"
     else
-        sedargs=""
+        sedargs=
     fi
     cat /dev/stdin | awk '{print $NF}' | sed $sedargs | while read id; do
-        $PLAYER "$SUBSONIC/rest/stream.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&id=$id" < /dev/null
+        if [[ $SUBSONIC == https://* ]]; then
+            $WGET -q $CERT_OPTS "$SUBSONIC/rest/download.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&id=$id" -O - \
+            | $PLAYER -cache-min 2 -cache 51200 -
+        else
+            $PLAYER -cache-min 2 -cache 51200 "$SUBSONIC/rest/download.view?u=$USER&p=$PASSWORD&v=$VERSION&c=$CLIENT&id=$id" < /dev/null
+        fi
     done
 fi 
 
